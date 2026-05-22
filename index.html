@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寵物管家 - 遊戲選擇</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    height: 100vh;
+    background: #fdf3e3;
+    font-family: "Microsoft JhengHei", "Noto Sans TC", sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow: hidden;
+}
+
+.top-bar {
+    width: 100%;
+    background: #b5762a;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    z-index: 10;
+}
+.top-bar a { color: #fff; text-decoration: none; font-size: 20px; }
+.top-bar .page-title { color: #fff; font-size: 20px; font-weight: bold; letter-spacing: 2px; }
+
+.screen-wrap {
+    position: relative;
+    flex: 1;
+    width: 100%;
+}
+
+.pick-screen,
+.loading-screen,
+.preview-screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 32px 16px;
+    transition: opacity 0.4s ease;
+}
+
+.pick-screen {
+    opacity: 1;
+    pointer-events: auto;
+    gap: 24px;
+}
+.pick-screen.fade-out {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.pick-hint {
+    font-size: 22px;
+    color: #a07030;
+    letter-spacing: 3px;
+    font-weight: bold;
+    opacity: 0.8;
+}
+
+.main-btn {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 52px;
+    max-width: 700px;
+}
+
+.game-btn {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    cursor: pointer;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    user-select: none;
+    transition: transform 0.35s cubic-bezier(.34,1.56,.64,1), opacity 0.35s ease;
+}
+.game-btn:hover { transform: scale(1.1); }
+
+.game-btn img {
+    width: 200px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.1));
+    transition: filter 0.3s;
+}
+.game-btn .btn-emoji {
+    font-size: 96px;
+    line-height: 1;
+    height: 120px;
+    display: none;
+    align-items: center;
+    filter: drop-shadow(0 5px 10px rgba(0,0,0,0.1));
+    transition: filter 0.3s;
+}
+.game-btn .btn-label {
+    font-size: 17px;
+    font-weight: bold;
+    color: #a07030;
+    letter-spacing: 1px;
+    transition: color 0.2s;
+}
+
+.game-btn.active img,
+.game-btn.active .btn-emoji {
+    filter: drop-shadow(0 0 10px rgba(181,118,42,.75))
+            drop-shadow(0 5px 10px rgba(0,0,0,0.15));
+}
+.game-btn.active { transform: scale(1.18); }
+.game-btn.active .btn-label { color: #b5762a; font-weight: 900; }
+.game-btn.active::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 36px;
+    height: 3px;
+    background: #b5762a;
+    border-radius: 2px;
+}
+.game-btn.hidden {
+    opacity: 0;
+    transform: scale(0.4);
+    pointer-events: none;
+}
+
+.loading-screen {
+    opacity: 0;
+    pointer-events: none;
+}
+.loading-screen.show {
+    opacity: 1;
+}
+
+.loading-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
+}
+.loading-row img {
+    width: 72px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.10)) brightness(0.88) saturate(0.7);
+    transform: scale(1);
+}
+.loading-row img.lifted {
+    animation: liftPop 0.22s cubic-bezier(.34,1.56,.64,1) forwards;
+}
+@keyframes liftPop {
+    0%   { transform: scale(1);    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.10)) brightness(0.88) saturate(0.7); }
+    45%  { transform: scale(1.28); filter: drop-shadow(0 18px 28px rgba(181,118,42,0.35)) brightness(1.05) saturate(1.1); }
+    100% { transform: scale(1);    filter: drop-shadow(0 3px 5px rgba(0,0,0,0.10)) brightness(0.88) saturate(0.7); }
+}
+
+.preview-screen {
+    opacity: 0;
+    pointer-events: none;
+    max-width: 500px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+}
+.preview-screen.fade-in {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.preview-card {
+    background: #fff;
+    border: 1.5px solid #e8d5b0;
+    border-radius: 20px;
+    padding: 44px 32px 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    text-align: center;
+    box-shadow: 0 6px 28px rgba(181,118,42,.13);
+    width: 100%;
+}
+
+.preview-img {
+    width: 160px;
+    height: 160px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 14px rgba(0,0,0,0.15));
+}
+.preview-emoji { font-size: 120px; line-height: 1; }
+
+.preview-title { font-size: 32px; font-weight: bold; color: #7a4e10; letter-spacing: 2px; }
+.preview-desc  { font-size: 17px; color: #8a6030; line-height: 2; max-width: 380px; }
+
+.preview-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    margin-top: 6px;
+}
+
+.btn-start {
+    padding: 18px 60px;
+    background: #b5762a;
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+    border: none;
+    border-radius: 14px;
+    cursor: pointer;
+    font-family: "Microsoft JhengHei", sans-serif;
+    letter-spacing: 3px;
+    transition: background .2s, transform .15s;
+    box-shadow: 0 4px 14px rgba(181,118,42,.35);
+}
+.btn-start:hover  { background: #9a6020; transform: translateY(-2px); }
+.btn-start:active { transform: translateY(0); }
+
+.btn-back {
+    background: none;
+    border: none;
+    color: #a07030;
+    font-size: 14px;
+    cursor: pointer;
+    font-family: "Microsoft JhengHei", sans-serif;
+    letter-spacing: 1px;
+    opacity: 0.75;
+    transition: opacity .2s;
+    padding: 4px 8px;
+}
+.btn-back:hover { opacity: 1; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+    <a href="index.html">←</a>
+    <span class="page-title">遊戲選擇</span>
+</div>
+
+<div class="screen-wrap">
+
+    <!-- PHASE 1：選擇畫面 -->
+    <div class="pick-screen" id="pickScreen">
+        <p class="pick-hint">選擇你的寵物遊戲</p>
+        <div class="main-btn" id="mainBtn">
+
+            <button class="game-btn" data-key="cat" onclick="pickGame('cat', this)">
+                <img src="img/cathead.png" alt="貓咪抓魚"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <span class="btn-emoji">🐱</span>
+                <span class="btn-label">貓咪抓魚</span>
+            </button>
+
+            <button class="game-btn" data-key="dog" onclick="pickGame('dog', this)">
+                <img src="img/doghead.png" alt="狗狗追光點"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <span class="btn-emoji">🐶</span>
+                <span class="btn-label">狗狗追光點</span>
+            </button>
+
+            <button class="game-btn" data-key="turtle" onclick="pickGame('turtle', this)">
+                <img src="img/turhead.png" alt="烏龜放鬆趴"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <span class="btn-emoji">🐢</span>
+                <span class="btn-label">烏龜放鬆趴</span>
+            </button>
+
+            <button class="game-btn" data-key="rabbit" onclick="pickGame('rabbit', this)">
+                <img src="img/rabhead.png" alt="兔兔接紅蘿蔔"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <span class="btn-emoji">🐰</span>
+                <span class="btn-label">兔兔接紅蘿蔔</span>
+            </button>
+
+        </div>
+    </div>
+
+    <!-- PHASE 1.5：Loading -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-row">
+            <img id="runImg0" src="img/dogrun.png" alt="dog">
+            <img id="runImg1" src="img/catrun.png" alt="cat">
+            <img id="runImg2" src="img/turrun.png" alt="turtle">
+            <img id="runImg3" src="img/rabrun.png" alt="rabbit">
+        </div>
+    </div>
+
+    <!-- PHASE 2：預覽卡 -->
+    <div class="preview-screen" id="previewScreen">
+        <div class="preview-card">
+            <img id="prevImg" class="preview-img" src="" alt=""
+                 onerror="this.style.display='none';document.getElementById('prevEmojiFallback').style.display='block'">
+            <div id="prevEmojiFallback" class="preview-emoji" style="display:none"></div>
+            <div class="preview-title" id="prevTitle"></div>
+            <div class="preview-desc"  id="prevDesc"></div>
+            <div class="preview-actions">
+                <button class="btn-start" id="btnStart">🎮 開始遊戲</button>
+                <button class="btn-back"  onclick="goBack()">← 重新選擇</button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const games = {
+    cat:    { name: '貓咪抓魚',    emoji: '🐱', img: 'cathead.png', preview: 'fish_1',  desc: '點擊螢幕上游動的魚，15 秒內看你能抓幾隻！', file: 'game_cat.html' },
+    dog:    { name: '狗狗追光點',   emoji: '🐶', img: 'doghead.png', preview: 'doghead', desc: '在 30 秒內盡量點擊跑動的光點，挑戰最高分！', file: 'game_dog.html' },
+    turtle: { name: '烏龜放鬆趴',   emoji: '🐢', img: 'turhead.png', preview: 'turhead', desc: '把螢幕靠近你的烏龜，讓牠慢慢追著彩色光點。', file: 'game_turtle.html' },
+    rabbit: { name: '兔兔接紅蘿蔔', emoji: '🐰', img: 'rabhead.png', preview: 'rabhead', desc: '移動兔兔接住從天而降的紅蘿蔔，30 秒計時！', file: 'game_rabbit.html' },
+};
+
+let currentKey = null;
+let liftTimer  = null;
+let liftStep   = 0;
+
+function pickGame(key, el) {
+    currentKey = key;
+    document.querySelectorAll('.game-btn').forEach(btn => {
+        btn.classList.toggle('active', btn === el);
+        btn.classList.toggle('hidden', btn !== el);
+    });
+    setTimeout(() => startLoading(key), 400);
+}
+
+function startLoading(key) {
+    document.getElementById('pickScreen').classList.add('fade-out');
+    document.getElementById('loadingScreen').classList.add('show');
+
+    liftStep = 0;
+    liftTimer = setInterval(doLift, 350);
+    doLift();
+
+    let count = 0;
+    const checkDone = setInterval(() => {
+        count++;
+        if (count >= 2) {
+            clearInterval(checkDone);
+            clearInterval(liftTimer);
+            setTimeout(() => {
+                document.getElementById('loadingScreen').classList.remove('show');
+                showPreview(key);
+            }, 600);
+        }
+    }, 550);
+}
+
+function doLift() {
+    const imgs = document.querySelectorAll('.loading-row img');
+    imgs.forEach(img => {
+        img.classList.remove('lifted');
+        void img.offsetWidth;
+    });
+    imgs[liftStep % 4].classList.add('lifted');
+    liftStep++;
+}
+
+function showPreview(key) {
+    const g = games[key];
+    document.getElementById('prevTitle').textContent = g.name;
+    document.getElementById('prevDesc').textContent  = g.desc;
+    document.getElementById('btnStart').onclick = () => { window.location.href = g.file; };
+
+    const img      = document.getElementById('prevImg');
+    const fallback = document.getElementById('prevEmojiFallback');
+    img.style.display      = 'block';
+    fallback.style.display = 'none';
+    fallback.textContent   = g.emoji;
+    img.alt = g.name;
+    img.src = 'img/' + g.preview + '.png';
+
+    document.getElementById('previewScreen').classList.add('fade-in');
+}
+
+function goBack() {
+    clearInterval(liftTimer);
+    document.querySelectorAll('.game-btn').forEach(btn => {
+        btn.classList.remove('active', 'hidden');
+    });
+    document.getElementById('previewScreen').classList.remove('fade-in');
+    document.getElementById('pickScreen').classList.remove('fade-out');
+}
+</script>
+
+</body>
+</html>
