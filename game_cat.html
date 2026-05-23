@@ -20,7 +20,7 @@
     /* ── 頂部列 ── */
     .top-bar {
         width: 100%;
-        background: rgba(0, 0, 20, .75);
+        background: rgba(0,0,20,.75);
         padding: 10px 16px;
         display: flex;
         align-items: center;
@@ -28,9 +28,13 @@
         flex-shrink: 0;
         z-index: 10;
     }
-    .top-bar a            { color: #aaccff; text-decoration: none; font-size: 16px; font-weight: bold; }
-    .top-bar a:hover      { color: #fff; }
-    .top-bar .page-title  { color: #fff; font-size: 17px; font-weight: bold; }
+    .top-bar a           { color: #aaccff; text-decoration: none; font-size: 16px; font-weight: bold; }
+    .top-bar a:hover     { color: #fff; }
+    .top-bar .page-title { color: #fff; font-size: 17px; font-weight: bold; }
+
+    /* 全螢幕時隱藏頂部列 */
+    :fullscreen .top-bar,
+    :-webkit-full-screen .top-bar { display: none; }
 
     /* ── 置中區 ── */
     .game-area {
@@ -41,6 +45,11 @@
         padding: 16px;
         overflow: hidden;
     }
+    :fullscreen .game-area,
+    :-webkit-full-screen .game-area {
+        padding: 0;
+        background: #000;
+    }
 
     /* ── 遊戲卡片 ── */
     .game-card {
@@ -49,11 +58,64 @@
         border-radius: 22px;
         box-shadow: 0 10px 40px rgba(0,0,0,.55);
         overflow: hidden;
+        transition: border-radius 0.3s;
     }
+    :fullscreen .game-card,
+    :-webkit-full-screen .game-card { border-radius: 0; }
 
     #gameCanvas { display: block; cursor: crosshair; }
 
-    /* ── 遊戲 UI（疊在卡片上） ── */
+    /* ── 開始畫面遮罩 ── */
+    #startOverlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,.52);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        z-index: 30;
+        border-radius: inherit;
+        transition: opacity 0.4s;
+    }
+    #startOverlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+    #startOverlay .start-title {
+        color: #fff;
+        font-size: clamp(22px, 4vw, 36px);
+        font-weight: bold;
+        text-shadow: 0 3px 10px rgba(0,0,0,.8);
+        letter-spacing: 3px;
+    }
+    #startOverlay .start-desc {
+        color: #ffe9b0;
+        font-size: clamp(13px, 2vw, 17px);
+        text-shadow: 0 2px 6px rgba(0,0,0,.7);
+        text-align: center;
+        padding: 0 20px;
+        line-height: 1.8;
+    }
+    #btnStart {
+        padding: 16px 52px;
+        background: #ffd700;
+        color: #333;
+        font-size: clamp(16px, 2.5vw, 22px);
+        font-weight: bold;
+        border: none;
+        border-radius: 14px;
+        cursor: pointer;
+        font-family: "Microsoft JhengHei", sans-serif;
+        letter-spacing: 3px;
+        box-shadow: 0 4px 18px rgba(255,215,0,.5);
+        transition: transform .15s, background .2s;
+    }
+    #btnStart:hover  { background: #ffec60; transform: scale(1.06); }
+    #btnStart:active { transform: scale(0.97); }
+
+    /* ── 遊戲 UI ── */
     #ui {
         position: absolute;
         top: 12px;
@@ -80,8 +142,7 @@
     }
     #winMsg {
         position: absolute;
-        top: 50%;
-        left: 50%;
+        top: 50%; left: 50%;
         transform: translate(-50%, -50%);
         color: #fff;
         font-size: 30px;
@@ -102,17 +163,44 @@
         transform-origin: left;
         z-index: 10;
     }
+
+    /* 全螢幕離開按鈕 */
+    #exitFsBtn {
+        position: absolute;
+        top: 12px; right: 14px;
+        z-index: 40;
+        background: rgba(0,0,0,.45);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        padding: 6px 14px;
+        font-size: 13px;
+        cursor: pointer;
+        display: none;
+        font-family: "Microsoft JhengHei", sans-serif;
+        letter-spacing: 1px;
+    }
+    :fullscreen #exitFsBtn,
+    :-webkit-full-screen #exitFsBtn { display: block; }
 </style>
 </head>
 <body>
 
 <div class="top-bar">
-    <a href="game_select.php">← 返回</a>
+    <a href="game_select.html">← 返回</a>
     <span class="page-title">🐱 貓咪抓魚</span>
 </div>
 
 <div class="game-area">
     <div class="game-card" id="gameCard">
+
+        <!-- 開始遮罩 -->
+        <div id="startOverlay">
+            <div class="start-title">🐱 貓咪抓魚</div>
+            <div class="start-desc">點擊螢幕上游動的魚<br>15 秒內看你能抓幾隻！</div>
+            <button id="btnStart" onclick="enterGame()">🎮 開始遊戲</button>
+        </div>
+
         <div id="ui">
             抓到：<span id="score">0</span> / 15 隻<br>
             時間：<span id="timeLeft">15</span>s
@@ -120,6 +208,7 @@
         </div>
         <div id="winMsg"></div>
         <div id="timerBar"></div>
+        <button id="exitFsBtn" onclick="exitFullscreen()">✕ 離開全螢幕</button>
         <canvas id="gameCanvas"></canvas>
     </div>
 </div>
@@ -134,8 +223,9 @@ const timeEl     = document.getElementById("timeLeft");
 const restartBtn = document.getElementById("restartBtn");
 const winMsg     = document.getElementById("winMsg");
 const timerBar   = document.getElementById("timerBar");
+const startOverlay = document.getElementById("startOverlay");
 
-/* ── 預載 5 張魚圖片 ── */
+/* ── 預載魚圖片 ── */
 const fishImages = [];
 for (let i = 1; i <= 5; i++) {
     const img = new Image();
@@ -143,11 +233,18 @@ for (let i = 1; i <= 5; i++) {
     fishImages.push(img);
 }
 
-/* ── 卡片 / Canvas 尺寸 ── */
+/* ── 尺寸計算 ── */
 function resize() {
-    const availH = window.innerHeight - topBar.offsetHeight - 32;
-    const availW = window.innerWidth - 32;
-    const w = Math.min(availW, availH * 1.65, 960);
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    let availW, availH;
+    if (isFs) {
+        availW = window.screen.width;
+        availH = window.screen.height;
+    } else {
+        availH = window.innerHeight - topBar.offsetHeight - 32;
+        availW = window.innerWidth - 32;
+    }
+    const w = Math.min(availW, availH * 1.65, isFs ? 99999 : 960);
     const h = Math.round(w / 1.65);
     gameCard.style.width  = w + "px";
     gameCard.style.height = h + "px";
@@ -156,28 +253,43 @@ function resize() {
 }
 resize();
 window.addEventListener("resize", resize);
+document.addEventListener("fullscreenchange", resize);
+document.addEventListener("webkitfullscreenchange", resize);
+
+/* ── 進入遊戲（全螢幕 + 開始）── */
+function enterGame() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (req) {
+        req.call(el).catch(() => {});
+    }
+    startOverlay.classList.add("hidden");
+    initGame();
+}
+
+function exitFullscreen() {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if (exit) exit.call(document);
+}
 
 /* ── 遊戲狀態 ── */
 let fishes = [], particles = [], score = 0;
 let timeLeft = 15, gameRunning = false;
 let timerInterval = null;
 
-/* ── 建立一條魚 ── */
 function createFish() {
     const goRight = Math.random() > .5;
-    const flipped = Math.random() > .5;
     return {
-        x:       goRight ? -50 : canvas.width + 50,
-        y:       70 + Math.random() * (canvas.height - 140),
-        size:    22 + Math.random() * 18,           // 半徑，用於碰撞
-        dx:      (goRight ? 1 : -1) * (1.3 + Math.random() * 2.2),
-        dy:      (Math.random() - .5) * 1.4,
-        imgIdx:  Math.floor(Math.random() * 5),     // 隨機選 fish_1~5
-        flipped: Math.random() > .5,                // 隨機水平翻轉
+        x:      goRight ? -50 : canvas.width + 50,
+        y:      70 + Math.random() * (canvas.height - 140),
+        size:   22 + Math.random() * 18,
+        dx:     (goRight ? 1 : -1) * (1.3 + Math.random() * 2.2),
+        dy:     (Math.random() - .5) * 1.4,
+        imgIdx: Math.floor(Math.random() * 5),
+        flipped: Math.random() > .5,
     };
 }
 
-/* ── 初始化 ── */
 function initGame() {
     fishes = [];
     particles = [];
@@ -189,7 +301,6 @@ function initGame() {
     restartBtn.style.display = "none";
     winMsg.style.display     = "none";
 
-    // 重設計時條
     timerBar.style.transition = "none";
     timerBar.style.transform  = "scaleX(1)";
     requestAnimationFrame(() => {
@@ -207,7 +318,6 @@ function initGame() {
     }, 1000);
 }
 
-/* ── 結束 ── */
 function endGame(won) {
     gameRunning = false;
     clearInterval(timerInterval);
@@ -218,7 +328,6 @@ function endGame(won) {
     winMsg.style.display = "block";
 }
 
-/* ── 點擊 / 觸控 ── */
 function tryClick(mx, my) {
     if (!gameRunning) return;
     for (let i = fishes.length - 1; i >= 0; i--) {
@@ -233,6 +342,7 @@ function tryClick(mx, my) {
         }
     }
 }
+
 canvas.addEventListener("mousedown", e => {
     const r = canvas.getBoundingClientRect();
     tryClick(e.clientX - r.left, e.clientY - r.top);
@@ -244,72 +354,47 @@ canvas.addEventListener("touchstart", e => {
     tryClick(t.clientX - r.left, t.clientY - r.top);
 }, { passive: false });
 
-/* ── 粒子爆炸 ── */
 function spawnParticles(x, y) {
     for (let i = 0; i < 12; i++) {
-        particles.push({
-            x, y,
-            dx:   (Math.random() - .5) * 8,
-            dy:   (Math.random() - .5) * 8,
-            life: 24,
-            hue:  Math.floor(Math.random() * 360),
-        });
+        particles.push({ x, y,
+            dx: (Math.random()-.5)*8, dy: (Math.random()-.5)*8,
+            life: 24, hue: Math.floor(Math.random()*360) });
     }
 }
 
-/* ── 畫魚（使用圖片）── */
 function drawFish(f) {
     const img = fishImages[f.imgIdx];
-    if (!img.complete || img.naturalWidth === 0) return; // 圖片尚未載入
-
+    if (!img.complete || img.naturalWidth === 0) return;
     const w = f.size * 2.8;
-    const h = img.naturalHeight > 0
-        ? w * (img.naturalHeight / img.naturalWidth)
-        : w;
-
+    const h = img.naturalHeight > 0 ? w * (img.naturalHeight / img.naturalWidth) : w;
     ctx.save();
     ctx.translate(f.x, f.y);
-
-    // 水平翻轉：移動方向 × 隨機翻轉
-    // dx > 0 朝右（不翻）；dx < 0 朝左（翻）；flipped 再疊一層隨機
-    const scaleX = (f.dx < 0 ? -1 : 1)
-    ctx.scale(scaleX, 1);
+    ctx.scale(f.dx < 0 ? -1 : 1, 1);
     ctx.rotate(Math.PI / 2);
-    ctx.drawImage(img, -w / 2, -h / 2, w, h);
+    ctx.drawImage(img, -w/2, -h/2, w, h);
     ctx.restore();
 }
 
-/* ── 主迴圈 ── */
 function gameLoop() {
-    // Canvas 透明 → 讓卡片的 catgamebg.png 透出
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // 更新 & 繪製魚
     fishes.forEach(f => {
-        f.x += f.dx;
-        f.y += f.dy;
-        if (f.dx > 0 && f.x >  canvas.width  + 60) f.x = -60;
-        if (f.dx < 0 && f.x < -60)                  f.x = canvas.width + 60;
-        if (f.y < 20 || f.y > canvas.height - 20)   f.dy *= -1;
+        f.x += f.dx; f.y += f.dy;
+        if (f.dx>0 && f.x > canvas.width+60)  f.x = -60;
+        if (f.dx<0 && f.x < -60)               f.x = canvas.width+60;
+        if (f.y<20 || f.y>canvas.height-20)    f.dy *= -1;
         drawFish(f);
     });
-
-    // 粒子
     particles = particles.filter(p => p.life > 0);
     particles.forEach(p => {
-        ctx.fillStyle = `hsla(${p.hue},90%,65%,${p.life / 24})`;
+        ctx.fillStyle = `hsla(${p.hue},90%,65%,${p.life/24})`;
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4 * (p.life / 24), 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 4*(p.life/24), 0, Math.PI*2);
         ctx.fill();
-        p.x += p.dx;
-        p.y += p.dy;
-        p.life--;
+        p.x += p.dx; p.y += p.dy; p.life--;
     });
-
     requestAnimationFrame(gameLoop);
 }
 
-initGame();
 gameLoop();
 </script>
 </body>
