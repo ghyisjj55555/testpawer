@@ -315,7 +315,7 @@ function spawnParticles(x, y) {
 function drawFish(f) {
     const img = fishImages[f.imgIdx];
     if (img.complete && img.naturalWidth > 0) {
-        const w = f.size * 2.8;
+        const w = f.size * 5.3;
         const h = w * (img.naturalHeight / img.naturalWidth);
         ctx.save();
         ctx.translate(f.x, f.y);
